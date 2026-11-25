@@ -27,7 +27,7 @@ const freshState = () => ({
   personalized: false, background: null, want: null,
   band: 60, layer: 'all', day: 0, part: 'all',
   plans: [], regs: {}, reports: {}, follows: {}, kudos: {}, results: [], activities: [],
-  mySessions: [], discoverable: false, challenges: {}, chats: {}, saved: {},
+  mySessions: [], discoverable: false, challenges: {}, chats: {}, saved: {}, target: null,
 });
 function loadState() {
   try { const raw = localStorage.getItem(STORE_KEY); if (raw) return Object.assign(freshState(), JSON.parse(raw)); } catch (e) { /* storage unavailable */ }
@@ -38,7 +38,7 @@ function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } ca
 const U = { tab: 'home', sel: null, stack: [], selEvents: {}, rec: null, groupsTab: 'clubs', lastPace: null };
 
 /* formatting */
-const fmtPace = s => `${Math.floor(s / 60)}:${pad2(Math.round(s % 60))}`;
+const fmtPace = s => { const t = Math.round(s); return `${Math.floor(t / 60)}:${pad2(t % 60)}`; }; // round first so 10:59.6 shows 11:00, not 10:60
 function fmtClock(d) { let h = d.getHours(); const m = d.getMinutes(), ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}:${pad2(m)} ${ap}`; }
 function fmtShort(d) { let h = d.getHours(); const m = d.getMinutes(), ap = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; return `${h}${m ? ':' + pad2(m) : ''} ${ap}`; }
 const startOfDay = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -190,15 +190,17 @@ function lanesAt(t, d) {
 const crowdWord = l => (l <= 1 ? 'Quiet' : l <= 3 ? 'Light' : l <= 5 ? 'Busy' : 'Packed');
 const sessionsAt = (tid, start, end) => allSessions().filter(s => s.track === tid && s.when >= start && s.when <= end).sort((a, b) => a.when - b.when);
 
+// The pace the lens matches against: one you typed in, or your easy pace from recent runs
+const tgt = () => S.target || ME.pace;
 function paceOK(it) {
   if (!S.band) return true;
-  if (it.type === 'club') return !it.sprint && it.groups.some(g => g.pace && Math.abs(g.pace - ME.pace) <= S.band);
+  if (it.type === 'club') return !it.sprint && it.groups.some(g => g.pace && Math.abs(g.pace - tgt()) <= S.band);
   if (it.type === 'meet' || it.type === 'session') return !!it.forPace || !!it.mine;
   if (it.type === 'track') {
     const w = curWin();
     return (trackOpenAt(it, NOW) && S.day === 0 && it.atPaceNow >= 3) || sessionsAt(it.id, w.start, w.end).some(s => s.forPace);
   }
-  if (it.type === 'partner') return Math.abs(it.pace - ME.pace) <= S.band + 30;
+  if (it.type === 'partner') return Math.abs(it.pace - tgt()) <= S.band + 30;
   return true;
 }
 const friendsOf = it => (it.friends || []).map(k => FRIENDS[k]).filter(Boolean);
@@ -551,7 +553,7 @@ function renderChips() {
   const w = curWin();
   const count = k => (k === 'route' ? ROUTES.length : k === 'track' ? tracksOpenIn(w).length : eventsIn(w, { layer: k }).length);
   $('#mapChips').innerHTML =
-    `<button class="chip lens ${S.band ? '' : 'off'}" data-action="lens" aria-label="Pace lens">${ic('target', 16, 2)}${S.band ? `Your pace ±${fmtPace(S.band)}` : 'Any pace'}</button>` +
+    `<button class="chip lens ${S.band ? '' : 'off'}" data-action="lens" aria-label="Pace lens">${ic('target', 16, 2)}${S.band ? (S.target ? `${fmtPace(tgt())} ±${fmtPace(S.band)}` : `Your pace ±${fmtPace(S.band)}`) : 'Any pace'}</button>` +
     LAYERS.map(([k, label]) => `<button class="chip ${S.layer === k ? 'on' : ''}" data-action="layer" data-layer="${k}" aria-pressed="${S.layer === k}">${label}${k === 'all' ? '' : `<span class="ct">${count(k)}</span>`}</button>`).join('');
 }
 
@@ -820,7 +822,7 @@ function setTab(tab) {
 }
 function renderTabbar() {
   const tabs = [['home', 'Home'], ['maps', 'Maps'], ['workout', 'Record'], ['groups', 'Groups'], ['you', 'You']];
-  $('#tabbar').innerHTML = tabs.map(([k, l]) => `<button data-tab="${k}" class="tab ${U.tab === k ? 'active' : ''}" aria-current="${U.tab === k ? 'page' : 'false'}">${ic(k === 'workout' ? 'record' : k, 24, 1.8)}<span>${l}</span></button>`).join('');
+  $('#tabbar').innerHTML = tabs.map(([k, l]) => `<button data-tab="${k}" class="tab ${U.tab === k ? 'active' : ''}" aria-current="${U.tab === k ? 'page' : 'false'}">${ic(k === 'workout' ? 'record' : k, 24, 1.8)}<span>${l}</span>${k === 'workout' && REC.st !== 'idle' ? '<i class="tab-dot"></i>' : ''}</button>`).join('');
 }
 
 function pushPage(html, cta = '') {
@@ -967,7 +969,7 @@ function trackPage(t) {
       <div class="eyebrow">${t.publicNow ? 'Public track' : 'Campus track'} · ${esc(t.area)}</div><h2>${esc(t.name)}</h2>
       <div class="hero-sub">${ts.open ? `<b style="color:var(--green)">${ts.text}</b> · ${t.lights ? 'lights on' : 'no lights'} · ${l} of 8 lanes in use` : ts.text}</div></div>
     <div class="facts">
-      <div class="fact"><div class="k">At your pace now</div><div class="v">${ts.open ? `${t.atPaceNow} runners` : '–'}<small>${ts.open ? `within ±1:00 of ${fmtPace(ME.pace)}` : ts.text}</small></div></div>
+      <div class="fact"><div class="k">At your pace now</div><div class="v">${ts.open ? `${t.atPaceNow} runners` : '–'}<small>${ts.open ? `within ±${fmtPace(S.band || 60)} of ${fmtPace(tgt())}` : ts.text}</small></div></div>
       <div class="fact"><div class="k">Crowd</div><div class="v">${ts.open ? crowdWord(l) : 'Closed'}<small>${ts.open ? `${l} of 8 lanes` : 'Typical at 6 PM: ' + crowdWord(t.crowd[18])}</small></div></div>
       <div class="fact"><div class="k">Surface</div><div class="v">${esc(t.surface)}</div></div>
       <button class="fact" data-action="open" data-id="${t.id}"><div class="k">Getting there</div><div class="v">${distTxt(t)}<small>${travel(t).mins} min ${travel(t).mode}</small></div></button>
@@ -996,8 +998,8 @@ function trackPage(t) {
 /* ---- Club ---- */
 function myGroup(c) {
   if (c.sprint) return null;
-  const g = c.groups.filter(x => x.pace).sort((a, b) => Math.abs(a.pace - ME.pace) - Math.abs(b.pace - ME.pace))[0];
-  return g && Math.abs(g.pace - ME.pace) <= Math.max(S.band, 60) ? g : null;
+  const g = c.groups.filter(x => x.pace).sort((a, b) => Math.abs(a.pace - tgt()) - Math.abs(b.pace - tgt()))[0];
+  return g && Math.abs(g.pace - tgt()) <= Math.max(S.band, 60) ? g : null;
 }
 const rsvpOf = (c, when) => when && S.plans.find(p => p.ref === c.id && +new Date(p.when) === +when);
 
@@ -1093,16 +1095,55 @@ function finishPersonalize(want) {
   setTimeout(planWeekModal, 250);
 }
 
+function parsePace(str) {
+  const s = String(str).trim().replace(/[^\d:.]/g, '');
+  let m, sec;
+  if (s.includes(':')) { [m, sec] = s.split(':').map(Number); }
+  else if (s.includes('.')) { const f = parseFloat(s); m = Math.floor(f); sec = Math.round((f - m) * 60); }
+  else if (s.length >= 3) { m = +s.slice(0, -2); sec = +s.slice(-2); }
+  else { m = +s; sec = 0; }
+  if (!Number.isFinite(m) || !Number.isFinite(sec) || sec >= 60) return null;
+  const v = m * 60 + sec;
+  return v >= 240 && v <= 960 ? v : null; // 4:00 to 16:00 per mile
+}
+function setTarget(v) {
+  S.target = v && v !== ME.pace ? Math.max(240, Math.min(960, v)) : null;
+  save(); updateMap();
+  if (U.tab === 'you') renderYou();
+}
+function lensKpi() {
+  const w = curWin(), total = eventsIn(w).length, n = eventsIn(w).filter(paceOK).length;
+  return `${ic('target', 20)}<span><b>${n} of ${total}</b> ${dayTitle().toLowerCase()} fit ${S.band ? `${fmtPace(tgt())} ±${fmtPace(S.band)}` : 'any pace'}</span>`;
+}
 function lensModal() {
   const opts = [[0, 'Off'], [30, '±0:30'], [60, '±1:00'], [90, '±1:30']];
-  const w = curWin();
-  const count = b => { const keep = S.band; S.band = b; const n = eventsIn(w).filter(paceOK).length; S.band = keep; return n; };
-  const total = eventsIn(w).length;
-  openModal(`<h3>Your pace</h3><p class="lead">Easy pace ${fmtPace(ME.pace)}/mi from your last 6 runs. Strava predicts a ${fmtPace(ME.predict.Mile)} mile and you have a ${ME.best5k} 5K. Pulse highlights groups and heats near that.</p>
-    <div class="label-sm">Highlight runs within</div>
+  const presets = [[ME.pace, 'Easy'], [ME.pace - 60, 'Steady'], [Math.round(ME.predict.Mile * 1.12), 'Tempo']];
+  openModal(`<h3>Your pace</h3><p class="lead">Set the pace you want to run with. Pulse highlights club groups, workouts and heats near it.</p>
+    <div class="label-sm">Target pace</div>
+    <div class="pace-in">
+      <button class="step" data-action="pace-step" data-d="-15" aria-label="15 seconds faster">−</button>
+      <label class="pace-field"><input id="paceInput" inputmode="decimal" autocomplete="off" maxlength="5" value="${fmtPace(tgt())}" aria-label="Target pace, minutes and seconds per mile"><span>/mi</span></label>
+      <button class="step" data-action="pace-step" data-d="15" aria-label="15 seconds slower">+</button>
+    </div>
+    <div class="pace-meta"><span id="paceSrc">${S.target ? 'Custom pace' : 'Your easy pace from your last 6 runs'}</span>${S.target ? `<button class="link" data-action="pace-reset">Reset to ${fmtPace(ME.pace)}</button>` : ''}</div>
+    <div class="pace-presets">${presets.map(([v, l]) => `<button class="opt ${tgt() === v ? 'on' : ''}" data-action="pace-set" data-v="${v}">${l} · ${fmtPace(v)}</button>`).join('')}</div>
+    <div class="label-sm">Range</div>
     <div class="opt-row">${opts.map(([b, l]) => `<button class="opt ${S.band === b ? 'on' : ''}" data-action="set-band" data-b="${b}">${l}</button>`).join('')}</div>
-    <div class="kpi">${ic('target', 20)}<span><b>${count(S.band)} of ${total}</b> ${dayTitle().toLowerCase()} fit at ${S.band ? '±' + fmtPace(S.band) : 'any pace'}</span></div>
+    <div class="kpi" id="paceKpi">${lensKpi()}</div>
     <button class="btn block white" data-action="close-modal">Done</button>`);
+  const inp = $('#paceInput');
+  inp.addEventListener('input', () => {
+    const v = parsePace(inp.value);
+    inp.classList.toggle('bad', v === null && inp.value.trim().length >= 3);
+    if (v === null) return;
+    setTarget(v);
+    $('#paceKpi').innerHTML = lensKpi();
+    $('#paceSrc').textContent = S.target ? 'Custom pace' : 'Your easy pace from your last 6 runs';
+    $$('[data-action="pace-set"]').forEach(b => b.classList.toggle('on', +b.dataset.v === tgt()));
+  });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+  inp.addEventListener('blur', () => { inp.value = fmtPace(tgt()); inp.classList.remove('bad'); });
+  inp.addEventListener('focus', () => inp.select());
 }
 
 /* ---- Plan my first week: the wow moment ---- */
@@ -1307,7 +1348,7 @@ function activityCard(a) {
     <h3>${esc(a.title)}</h3>
     ${a.official ? `<div style="padding:0 16px 12px"><div class="official" style="padding:12px 14px"><div class="o-k">${ic('shield', 13, 2.4)} Official result · FAT</div><div class="o-s" style="color:var(--text);font-weight:700;font-size:15px;margin-top:4px">${esc(a.official)}</div></div></div>` : ''}
     <div class="a-stats">${a.stats.map(([kk, v]) => `<div><div class="k">${kk}</div><div class="v">${v}</div></div>`).join('')}</div>
-    ${a.note ? `<button class="a-note" ${a.noteId ? `data-action="detail" data-id="${a.noteId}"` : ''}>${ic(a.noteIcon || 'trophy', 18)}<span style="flex:1">${a.note}</span>${a.noteId ? ic('chev', 16) : ''}</button>` : ''}
+    ${a.note ? `<button class="a-note" ${a.noteId ? `data-action="${a.noteAction || 'detail'}" data-id="${a.noteId}"` : ''}>${ic(a.noteIcon || 'trophy', 18)}<span style="flex:1">${a.note}</span>${a.noteId ? ic('chev', 16) : ''}</button>` : ''}
     ${a.map ? `<div class="a-map">${a.map}</div>` : ''}
     <div class="a-foot"><span class="a-kudos">${(a.kudos || 0) + (k ? 1 : 0)} kudos</span><div class="a-actions"><button class="${k ? 'on' : ''}" data-action="kudos" data-id="${a.id}" aria-label="Give kudos">${ic('thumb', 22)}</button><button data-action="share" aria-label="Share">${ic('share', 21)}</button></div></div>
   </article>`;
@@ -1321,7 +1362,12 @@ function homeActivities() {
       title: m.name, official: `${main.event} ${main.time} · ${main.heat} · ${main.place} of ${main.field}`, stats: [['Events', r.items.length], ['Best', main.time], ['Place', `${main.place}/${main.field}`]],
       note: 'Next in the series: Meet 3', noteId: 'm5', noteIcon: 'flag', kudos: 23 });
   });
-  S.activities.slice().reverse().forEach(a => list.push({ id: a.id, who: ME.name, avatar: av({ hue: 15, initials: ME.initials }, '', false), meta: `Today at ${fmtClock(new Date(a.date))}`, title: a.title, stats: [['Distance', a.dist.toFixed(2) + ' mi'], ['Pace', fmtPace(a.pace) + ' /mi'], ['Time', fmtDur(a.time)]], kudos: 0 }));
+  S.activities.slice().reverse().forEach(a => {
+    const d = new Date(a.date), best = a.splits && a.splits.length ? Math.min(...a.splits) : null;
+    list.push({ id: a.id, who: ME.name, avatar: av({ hue: 15, initials: ME.initials }, '', false), meta: `${fmtDay(d)} at ${fmtClock(d)} · ${a.mode === 'sim' ? 'Simulated' : 'Recorded with GPS'}`,
+      title: a.title, stats: [['Distance', a.dist.toFixed(2) + ' mi'], ['Pace', (a.pace ? fmtPace(a.pace) : '–:––') + ' /mi'], ['Time', fmtDur(a.time)]],
+      map: a.pts && a.pts.length > 1 ? routeSvg(a.pts, 390, 200, { pad: 22 }) : '', note: best ? `${a.splits.length} mile split${a.splits.length > 1 ? 's' : ''} · fastest ${fmtDur(best)}` : 'View activity', noteAction: 'activity', noteId: a.id, noteIcon: 'timer', kudos: 0 });
+  });
   list.push(
     { id: 'a-kai', who: 'Kai Nakamura', avatar: av(FRIENDS.kai, ''), meta: `Yesterday at 6:31 PM · ${venueLink('t1', 'Drake Stadium')}`, title: 'Track intervals · 6 × 400m', stats: [['Distance', '4.20 mi'], ['Pace', '7:58 /mi'], ['Time', '33m 29s']], kudos: 14, note: 'Workout with Bruin Sunrise Milers', noteId: 'c2', noteIcon: 'club' },
     { id: 'a-ian', who: ME.name, avatar: av({ hue: 15, initials: ME.initials }, '', false), meta: 'November 3 at 6:17 AM · Los Angeles, California', title: 'Morning Run', stats: [['Distance', '4.08 mi'], ['Pace', '10:42 /mi'], ['Time', '43m 44s']], note: 'Your fastest 5K ever', noteIcon: 'trophy', map: trackRunSvg(), kudos: 6 },
@@ -1420,27 +1466,14 @@ function renderYou() {
     <div class="section"><h3 class="section-title">Your week</h3>${ps.length ? `<div class="list">${ps.map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div>` : '<p class="section-sub">Nothing planned yet. Open Maps to find a run.</p>'}</div>
     ${S.results.length ? `<div class="section"><h3 class="section-title">Race results</h3>${S.results.map(r => { const m = MEETS.find(x => x.id === r.meetId), x = r.items[0]; return `<button class="official" style="width:100%;margin-bottom:8px;text-align:left" data-action="detail" data-id="${m.id}"><div class="o-k">${ic('shield', 13, 2.4)} Official · ${esc(m.name)}</div><div class="o-t" style="font-size:30px">${x.time}</div><div class="o-s">${esc(x.event)} · ${x.heat} · ${x.place} of ${x.field}</div></button>`; }).join('')}</div>` : ''}
     <div class="section"><h3 class="section-title">Pulse settings</h3><div class="list">
-      <button class="li" data-action="lens"><span class="tile">${ic('target', 20, 2)}</span><div class="li-main"><div class="li-t">Pace lens</div><div class="li-s">${S.band ? `Within ±${fmtPace(S.band)} of ${fmtPace(ME.pace)}/mi` : 'Off'}</div></div>${ic('chev', 18)}</button>
+      <button class="li" data-action="lens"><span class="tile">${ic('target', 20, 2)}</span><div class="li-main"><div class="li-t">Pace lens</div><div class="li-s">${S.band ? `Within ±${fmtPace(S.band)} of ${fmtPace(tgt())}/mi${S.target ? ' (custom)' : ''}` : 'Off'}</div></div>${ic('chev', 18)}</button>
       <button class="li" data-action="redo-personalize"><span class="tile">${ic('pin', 20, 2)}</span><div class="li-main"><div class="li-t">Background & goals</div><div class="li-s">${persona || 'Not set'}</div></div>${ic('chev', 18)}</button>
       <button class="li" data-action="discoverable"><span class="tile">${ic('person', 20, 2)}</span><div class="li-main"><div class="li-t">Show me to runners at my pace</div><div class="li-s">Neighborhood and pace only. Off by default.</div></div><span class="toggle ${S.discoverable ? 'on' : ''}"></span></button>
     </div></div>
     <p class="muted" style="font-size:12px;line-height:1.5;padding:18px 18px 0;margin:0">Strava Pulse is a student concept for the Product Space case competition. It is not affiliated with or endorsed by Strava. All clubs, meets, people and crowd data are sample data.</p>`;
 }
 
-function renderWorkout() {
-  const r = U.rec, el = r ? r.elapsed : 0, d = r ? r.dist : 0;
-  const rr = U.runRoute && byId(U.runRoute);
-  $('#screen-workout').innerHTML = `<div class="record"><div class="record-map">${routeSvg(rr ? rr.route : CLUBS[0].route, 390, 560, { pad: 50 })}<div style="position:absolute;top:60px;left:0;right:0;text-align:center"><span class="sport">${ic(rr ? 'route' : 'run', 18)} ${rr ? `${esc(rr.name)} · ${rr.mi} mi` : 'Run'}</span></div></div>
-    <div class="record-panel"><div class="record-stats"><div><div class="v" id="recTime">${fmtDur(el)}</div><div class="k">Time</div></div><div><div class="v" id="recDist">${d.toFixed(2)}</div><div class="k">Distance (mi)</div></div><div><div class="v" id="recPace">${d > 0.01 ? fmtPace(el / d) : '–:––'}</div><div class="k">Avg pace</div></div></div>
-    <div class="record-ctrls">${!r ? '<button class="rec-btn" data-action="rec-start">START</button>' : r.running ? '<button class="rec-btn" data-action="rec-pause" style="background:#fff;color:#000">PAUSE</button>' : '<button class="rec-btn small" data-action="rec-resume">RESUME</button><button class="rec-btn" data-action="rec-finish">FINISH</button>'}</div></div></div>`;
-}
-let recTimer = null;
-function recTick() {
-  const r = U.rec;
-  if (!r || !r.running) return;
-  r.elapsed += 6; r.dist = r.elapsed / ME.pace;
-  if (U.tab === 'workout') { $('#recTime').textContent = fmtDur(r.elapsed); $('#recDist').textContent = r.dist.toFixed(2); $('#recPace').textContent = fmtPace(ME.pace); }
-}
+/* Record lives in js/record.js (real GPS + simulate mode) */
 
 /* ============ 10. Actions & boot ============ */
 function afterChange() {
@@ -1459,6 +1492,7 @@ function openDetail(id) {
 }
 
 const ACTIONS = {
+  ...REC_ACTIONS,
   back: () => popPage(),
   share: () => toast('Share card copied: a story-sized image with your route and result', 'share'),
   toast: el => toast(el.dataset.msg, el.dataset.icon || 'check'),
@@ -1466,6 +1500,9 @@ const ACTIONS = {
   layer: el => { S.layer = el.dataset.layer; save(); if (U.sel) deselect(); updateMap(); },
   lens: () => lensModal(),
   'set-band': el => { S.band = +el.dataset.b; save(); updateMap(); lensModal(); if (U.tab === 'you') renderYou(); },
+  'pace-step': el => { setTarget(tgt() + +el.dataset.d); lensModal(); },
+  'pace-set': el => { setTarget(+el.dataset.v); lensModal(); },
+  'pace-reset': () => { setTarget(null); lensModal(); },
   day: el => { S.day = +el.dataset.i; if (S.day === 0 && S.part === 'am' && NOW.getHours() >= 12) S.part = 'all'; save(); updateMap(); },
   part: el => { S.part = el.dataset.p; save(); updateMap(); },
   open: el => { closeAllPages(); select(el.dataset.id); },
@@ -1521,15 +1558,12 @@ const ACTIONS = {
   'groups-tab': el => { U.groupsTab = el.dataset.t; renderGroups(); },
   'join-challenge': el => { S.challenges[el.dataset.id] = !S.challenges[el.dataset.id]; save(); renderGroups(); },
   discoverable: () => { S.discoverable = !S.discoverable; save(); renderYou(); toast(S.discoverable ? 'Runners at your pace can now see your neighborhood and pace.' : 'Hidden from other runners', 'shield'); },
-  'rec-start': () => { U.rec = { running: true, elapsed: 0, dist: 0 }; clearInterval(recTimer); recTimer = setInterval(recTick, 1000); renderWorkout(); },
-  'rec-pause': () => { U.rec.running = false; renderWorkout(); },
-  'rec-resume': () => { U.rec.running = true; renderWorkout(); },
-  'rec-finish': () => { const r = U.rec, rr = U.runRoute && byId(U.runRoute); clearInterval(recTimer); if (r && r.dist > 0.05) S.activities.push({ id: 'w' + Date.now(), title: rr ? rr.name : 'Evening Run', dist: r.dist, time: r.elapsed, pace: r.elapsed / r.dist, date: NOW.toISOString() }); save(); U.rec = null; U.runRoute = null; toast('Saved to your feed'); setTab('home'); },
   'run-route': el => { U.runRoute = el.dataset.id; setTab('workout'); toast(`Route loaded: ${byId(el.dataset.id).name}. Tap Start when you’re at the start.`, 'route'); },
   'save-route': el => { S.saved[el.dataset.id] = !S.saved[el.dataset.id]; save(); toast(S.saved[el.dataset.id] ? 'Saved to your routes' : 'Removed from saved routes', 'route'); afterChange(); },
 };
 
 function resetDemo() {
+  recReset();
   S = freshState(); save();
   U.sel = null; U.selEvents = {}; U.lastPace = null;
   closeAllPages(); closeModal();
