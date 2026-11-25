@@ -2,11 +2,17 @@
    Pulse demo data — Westside Los Angeles, winter season.
    Venue names are real places; schedules, hours, crowds, clubs,
    meets, sessions and people are SAMPLE DATA for the demo.
-   Everything is relative to a fixed demo clock: today at 6:20 PM.
-   Recurring things use real weekdays, so labels are always right.
+   Everything runs on the viewer's real clock. Recurring things use real
+   weekdays, and one-off posts for tonight roll to tomorrow once they pass.
 ------------------------------------------------------------------- */
 
-const NOW = (() => { const d = new Date(); d.setHours(18, 20, 0, 0); return d; })();
+// Real time by default. For a pitch you can pin the time of day with ?time=18:20
+const NOW = (() => {
+  const d = new Date(); d.setSeconds(0, 0);
+  const m = (new URLSearchParams(location.search).get('time') || '').match(/^(\d{1,2}):?(\d{2})$/);
+  if (m && +m[1] < 24 && +m[2] < 60) d.setHours(+m[1], +m[2]);
+  return d;
+})();
 const TODAY = (() => { const d = new Date(NOW); d.setHours(0, 0, 0, 0); return d; })();
 
 function at(dayOffset, h, m = 0) {
@@ -22,6 +28,11 @@ function nextDow(dow, h, m = 0, minDays = 0) {
     if (d.getDay() === dow && d > new Date(+NOW - 20 * 60e3)) return d;
   }
   return at(minDays + 7, h, m);
+}
+// Today at h:m, or tomorrow if that time has already passed (for one-off evening posts)
+function tonightOr(h, m = 0) {
+  const d = at(0, h, m);
+  return d > new Date(+NOW - 20 * 60e3) ? d : at(1, h, m);
 }
 // US Thanksgiving: 4th Thursday of November
 function thanksgiving(year) {
@@ -119,15 +130,22 @@ const TRACKS = [
     etiquette: 'Busy with groups 6–8p. Reps in lanes 1–3.',
   },
 ];
+// "Live" numbers come from the typical crowd at this hour, so they match the busy chart
+TRACKS.forEach(t => {
+  const h = NOW.getHours() + NOW.getMinutes() / 60, open = t.slots.some(([a, b]) => h >= a && h < b);
+  const base = t.liveLanes;
+  t.liveLanes = open ? Math.max(1, t.crowd[NOW.getHours()]) : 0;
+  t.atPaceNow = open ? Math.max(0, Math.round(t.atPaceNow * t.liveLanes / base)) : 0;
+});
 
 /* ---------- Open sessions (the track workout board) ---------- */
 // Posted by runners for today/tomorrow. effort = target pace per mile for the reps.
 const SESSIONS = [
-  { id: 's1', type: 'session', track: 't2', who: 'Sam Reyes', initials: 'SR', hue: 30, when: at(0, 19, 0),
+  { id: 's1', type: 'session', track: 't2', who: 'Sam Reyes', initials: 'SR', hue: 30, when: tonightOr(19, 0),
     workout: '6 × 400m @ 2:00', rest: '90s jog', effort: 480, joined: 2, want: 2, forPace: true },
-  { id: 's2', type: 'session', track: 't2', who: 'Priya Shah', initials: 'PS', hue: 280, when: at(0, 19, 15),
+  { id: 's2', type: 'session', track: 't2', who: 'Priya Shah', initials: 'PS', hue: 280, when: tonightOr(19, 15),
     workout: '4 × 800m @ 3:40', rest: '2:00 jog', effort: 440, joined: 1, want: 1, forPace: false },
-  { id: 's3', type: 'session', track: 't1', who: 'Kai Nakamura', initials: 'KN', hue: 205, when: at(0, 19, 30), friend: 'kai',
+  { id: 's3', type: 'session', track: 't1', who: 'Kai Nakamura', initials: 'KN', hue: 205, when: tonightOr(19, 30), friend: 'kai',
     workout: '5 × 1K @ 4:45', rest: '2:00 standing', effort: 458, joined: 3, want: 1, forPace: false },
   { id: 's4', type: 'session', track: 't6', who: 'Dev Patel', initials: 'DP', hue: 55, when: at(1, 6, 30),
     workout: 'Tempo 3 mi @ 8:50', rest: 'continuous', effort: 530, joined: 1, want: 2, forPace: true },
@@ -286,8 +304,8 @@ const MEETS = [
     blurb: 'Next stop in the winter series. Pre-register to keep your seed.',
   },
   {
-    id: 'm12', type: 'meet', name: 'Corsair Twilight Time Trial', series: 'Weekly time trial · tonight',
-    venue: 't2', lat: 34.0159, lng: -118.4711, when: at(0, 19, 30), lights: true,
+    id: 'm12', type: 'meet', name: 'Corsair Twilight Time Trial', series: 'Weekly time trial',
+    venue: 't2', lat: 34.0159, lng: -118.4711, when: tonightOr(19, 30), lights: true,
     organizer: 'Westside Track Club', fees: '$5 · pay at the table', registered: 23, cap: 60,
     viaPulse: 12, firstTimers: 8, under22: 10,
     firstTimer: true, unattached: true, seeded: true, forPace: true,

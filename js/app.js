@@ -713,7 +713,7 @@ function renderPeek() {
     card = `<div class="week-strip">${ps.slice(0, 4).map(p => `<button class="wk" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><span class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></span><span><div class="wk-t">${esc(p.title)}</div><div class="wk-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></span></button>`).join('')}</div>`;
   }
   $('#sheetPeek').innerHTML =
-    `<div class="summary"><span><b>${ev.length}</b> runs & meets${S.band ? ` · <b class="pace" id="sumPace" data-v="${U.lastPace ?? atPace}">${U.lastPace ?? atPace}</b> fit ${fmtPace(tgt())}` : ''} · <b>${tracks}</b> tracks open</span><button class="link" data-action="sheet-list">List ${ic('chev', 14, 2.2)}</button></div>${card}`;
+    `<div class="summary"><span><b>${ev.length}</b> runs & meets${S.band ? ` · <b class="pace" id="sumPace" data-v="${U.lastPace ?? atPace}">${U.lastPace ?? atPace}</b> fit ${fmtPace(tgt())}` : ''} · <b>${tracks}</b> track${tracks === 1 ? '' : 's'} open</span><button class="link" data-action="sheet-list">List ${ic('chev', 14, 2.2)}</button></div>${card}`;
   const sp = $('#sumPace');
   if (sp) tweenNum(sp, atPace);
   U.lastPace = atPace;
@@ -979,8 +979,8 @@ function organizerPage(m) {
 /* ---- Track ---- */
 function trackPage(t) {
   const ts = trackStatus(t), l = ts.open ? t.liveLanes : 0;
-  // the orange "Now" bar follows the viewer's real clock (not the demo clock)
-  const real = new Date(), rh = real.getHours(), rhf = rh + real.getMinutes() / 60;
+  // the orange "Now" bar is the current hour
+  const real = NOW, rh = real.getHours(), rhf = rh + real.getMinutes() / 60;
   const realOpen = t.slots.some(([a, b]) => rhf >= a && rhf < b);
   const bars = t.crowd.slice(5, 23).map((v, i, arr) => {
     const hr = i + 5, live = hr === rh, val = live && !realOpen ? 0 : v;
@@ -1315,9 +1315,9 @@ function chatModal(p) {
 /* ---- Inbox ---- */
 function inboxModal() {
   const items = [
-    ['club', 'Westwood Night Owls', 'Captain Maya: 3 new runners from Pulse tonight. Meet at the fountain at 6:50.', '12m'],
+    ['club', 'Westwood Night Owls', 'Captain Maya: 3 new runners from Pulse this week. Meet at the fountain at 6:50.', '12m'],
     ['flag', 'Westside Mile Night', 'Kai and Lena pre-registered. Heat sheets post the day before.', '1h'],
-    ['bolt', 'SMC Corsair Field', 'Sam posted 6 × 400m @ 2:00 for tonight, 7:00 PM.', '2h'],
+    ['bolt', 'SMC Corsair Field', `Sam posted 6 × 400m @ 2:00 for ${fmtDay(SESSIONS[0].when).toLowerCase()} at ${fmtClock(SESSIONS[0].when)}.`, '2h'],
   ];
   Object.entries(S.chats).forEach(([id, c]) => { const p = personFor(id); if (p) items.unshift(['chat', p.name, c.status === 'confirmed' ? `I’m in for ${c.label}.` : 'Waiting for a reply…', 'now']); });
   openModal(`<h3>Inbox</h3><div class="list" style="margin:10px 0 18px">${items.map(([i, t, s, w]) => `<div class="li"><span class="tile">${ic(i, 20, 2)}</span><div class="li-main"><div class="li-t">${esc(t)}</div><div class="li-s" style="white-space:normal">${esc(s)}</div></div><span class="muted" style="font-size:12px">${w}</span></div>`).join('')}</div><button class="btn block ghost" data-action="close-modal">Close</button>`);
@@ -1405,8 +1405,10 @@ function homeActivities() {
   return list;
 }
 function renderHome() {
-  const w = windowFor(0, 'all');
-  const ev = eventsIn(w), atPace = ev.filter(paceOK).length, tracks = TRACKS.filter(t => trackOpenAt(t, NOW)).length;
+  // today's runs, or tomorrow's once today is nearly over
+  let w = windowFor(0, 'all'), ev = eventsIn(w), whenWord = NOW.getHours() >= 17 ? 'tonight' : 'today';
+  if (ev.length < 2) { w = windowFor(1, 'all'); ev = eventsIn(w); whenWord = 'tomorrow'; }
+  const atPace = ev.filter(paceOK).length, tracks = TRACKS.filter(t => trackOpenAt(t, NOW)).length;
   const friendsGoing = new Set(ev.flatMap(e => e.friends || []).concat(ev.filter(e => e.friend).map(e => e.friend))).size;
   const ps = plansSorted();
   const scrolled = $('#screen-home').scrollTop > 8;
@@ -1417,8 +1419,8 @@ function renderHome() {
     <div class="pulse-card">
       <canvas id="homeHeat" width="732" height="336"></canvas>
       <div class="pc-body"><div class="pc-k"><span class="live-dot"></span> Pulse · near UCLA</div>
-        <h3>${ev.length} runs & meets near you tonight</h3>
-        <div class="pc-stats">${atPace} fit ${fmtPace(tgt())} · ${tracks} tracks open now · ${friendsGoing} friend${friendsGoing === 1 ? '' : 's'} going</div>
+        <h3>${ev.length} runs & meets near you ${whenWord}</h3>
+        <div class="pc-stats">${atPace} fit ${fmtPace(tgt())} · ${tracks} track${tracks === 1 ? '' : 's'} open now · ${friendsGoing} friend${friendsGoing === 1 ? '' : 's'} going</div>
         <div class="pc-actions">${ps.length ? `<button class="btn" data-tab="maps">Open the map</button>` : `<button class="btn" data-action="go-plan">Plan my first week</button><button class="btn ghost" data-tab="maps">Map</button>`}</div></div></div>
     ${ps.length ? `<div class="home-plans"><div class="section-title" style="font-size:17px;margin:8px 4px 10px">Your week</div><div class="list">${ps.slice(0, 4).map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div></div>` : ''}
     <div style="height:16px"></div>
@@ -1660,7 +1662,12 @@ function boot() {
     if (h) h.classList.toggle('scrolled', e.currentTarget.scrollTop > 8);
   }, { passive: true }));
   $('#recenterFab').innerHTML = ic('nav', 19, 2);
-  $('#sbTime').textContent = fmtClock(NOW).replace(/ (AM|PM)/, '');
+  // status bar shows the real time and keeps ticking
+  const t0 = Date.now(), tick = () => { $('#sbTime').textContent = fmtClock(new Date(+NOW + Date.now() - t0)).replace(/ (AM|PM)/, ''); };
+  tick(); setInterval(tick, 15e3);
+  // each visit opens the map on today, or on tomorrow once nothing is left today
+  S.day = eventsIn(windowFor(0, 'all')).length ? 0 : 1;
+  if (S.day === 0 && S.part === 'am' && NOW.getHours() >= 12) S.part = 'all';
   const start = (location.hash || '').replace('#', '');
   setTab(['home', 'maps', 'workout', 'groups', 'you'].includes(start) ? start : 'home');
   // first visit on this device: welcome + create account (the demo runner is one tap away)

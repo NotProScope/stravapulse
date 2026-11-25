@@ -87,7 +87,7 @@ tools/photos_*.py    finds and downloads openly licensed photos from Wikimedia C
 js/app.js       app logic in 10 commented sections
 ```
 
-- **Demo clock:** fixed at *today, 6:20 PM*. Club runs and meets use real weekdays, so day labels are always correct.
+- **Real clock:** the app runs on the viewer's own time. Club runs and meets use real weekdays, tonight's one-off posts roll to tomorrow once they pass, and live lane counts follow the typical crowd for the current hour. To pin a time of day for a pitch, add `?time=18:20` to the URL.
 - **Thanksgiving:** a Turkey Trot appears only in Thanksgiving week.
 - **Adding things:** a meet, club or workout added to `data.js` shows up on the map, the day strip, the list and the plan builder automatically.
 - **Sample data:** venue names are real places. Schedules, crowds, clubs, meets and people are invented, and the app says so.

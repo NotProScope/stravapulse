@@ -165,4 +165,4 @@ The rubric names **Cursor/Grok**, so make that true and visible:
   - Emoji were replaced with one icon set.
   - The plan-my-week moment, the organizer view and the post-race loop were added.
 - **The stack in one breath:** *"Vanilla JS + Leaflet, a canvas-rendered line heatmap, SVG pins that encode type by shape and relevance by color, and every screen driven from one data file."*
-- **Know what's real vs. mocked:** demo data, a fixed 6:20 PM demo clock, no real payments. In production these come from Strava's GPS heatmap, Performance Predictions, organizer APIs and FAT timing feeds.
+- **Know what's real vs. mocked:** demo data, the viewer's real clock (what you see depends on the time of day), no real payments. In production these come from Strava's GPS heatmap, Performance Predictions, organizer APIs and FAT timing feeds.
