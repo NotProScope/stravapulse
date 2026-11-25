@@ -534,9 +534,10 @@ button.fact:hover { background: #18181b; }
 
 /* ===================== Groups / You ===================== */
 .tabs2 { display: flex; border-bottom: 1px solid var(--line); }
-.tabs2 button { flex: 1; height: 46px; font-weight: 700; color: var(--muted); position: relative; }
+.tabs2 button { flex: 1; height: 46px; font-weight: 700; color: var(--muted); display: flex; justify-content: center; text-align: center; transition: color .2s; }
+.tabs2 button span { position: relative; display: flex; align-items: center; height: 100%; }
 .tabs2 button.on { color: var(--text); }
-.tabs2 button.on::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: -1px; height: 3px; background: var(--orange); border-radius: 2px; }
+.tabs2 button.on span::after { content: ''; position: absolute; left: -4px; right: -4px; bottom: -1px; height: 3px; background: var(--orange); border-radius: 2px; }
 .club-row { display: flex; gap: 12px; align-items: center; padding: 12px 16px; width: 100%; border-bottom: 1px solid var(--line); }
 .challenge { background: var(--s1); border-radius: var(--r-md); padding: 14px; display: flex; gap: 14px; align-items: center; }
 .challenge + .challenge { margin-top: 8px; }

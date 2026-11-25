@@ -1403,7 +1403,7 @@ function renderGroups() {
     body = `<div class="section" style="margin-top:16px">${ps.length ? `<div class="list">${ps.map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div>` : `<div class="card empty">Nothing planned yet.<br><br><button class="btn sm" data-action="go-plan">Plan my first week</button></div>`}</div>`;
   }
   $('#screen-groups').innerHTML = `<div class="topbar"><span style="width:42px"></span><div class="topbar-title">Groups</div><span style="width:42px"></span></div>
-    <div class="tabs2">${[['plans', 'Your week'], ['challenges', 'Challenges'], ['clubs', 'Clubs']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-action="groups-tab" data-t="${k}">${l}</button>`).join('')}</div>${body}`;
+    <div class="tabs2">${[['plans', 'Your week'], ['challenges', 'Challenges'], ['clubs', 'Clubs']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-action="groups-tab" data-t="${k}" aria-pressed="${tab === k}"><span>${l}</span></button>`).join('')}</div>${body}`;
 }
 
 function renderYou() {
