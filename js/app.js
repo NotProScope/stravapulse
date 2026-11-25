@@ -1334,9 +1334,11 @@ function renderHome() {
   const ev = eventsIn(w), atPace = ev.filter(paceOK).length, tracks = TRACKS.filter(t => trackOpenAt(t, NOW)).length;
   const friendsGoing = new Set(ev.flatMap(e => e.friends || []).concat(ev.filter(e => e.friend).map(e => e.friend))).size;
   const ps = plansSorted();
+  const scrolled = $('#screen-home').scrollTop > 8;
   $('#screen-home').innerHTML = `
-    <div class="topbar"><button data-tab="you" aria-label="Your profile">${av({ hue: 15, initials: ME.initials }, '', false)}</button>
-      <div class="row"><button class="icon-btn" data-action="inbox" aria-label="Messages">${ic('chat', 21)}</button><button class="icon-btn" data-action="inbox" aria-label="Notifications">${ic('bell', 21)}<span class="badge-dot">3</span></button></div></div>
+    <header class="home-head ${scrolled ? 'scrolled' : ''}"><div class="topbar"><button data-tab="you" aria-label="Your profile">${av({ hue: 15, initials: ME.initials }, '', false)}</button>
+      <span class="home-title" aria-hidden="true">Home</span>
+      <div class="row"><button class="icon-btn" data-action="inbox" aria-label="Messages">${ic('chat', 21)}</button><button class="icon-btn" data-action="inbox" aria-label="Notifications">${ic('bell', 21)}<span class="badge-dot">3</span></button></div></div></header>
     <div class="pulse-card">
       <canvas id="homeHeat" width="732" height="336"></canvas>
       <div class="pc-body"><div class="pc-k"><span class="live-dot"></span> Pulse · near UCLA</div>
@@ -1555,6 +1557,11 @@ function boot() {
     if (e.key.toLowerCase() === 'r' && e.shiftKey) resetDemo();
   });
   initSheet();
+  // Home header stays pinned; it picks up a frosted background once you scroll
+  $('#screen-home').addEventListener('scroll', e => {
+    const h = $('.home-head', e.currentTarget);
+    if (h) h.classList.toggle('scrolled', e.currentTarget.scrollTop > 8);
+  }, { passive: true });
   $('#recenterFab').innerHTML = ic('nav', 19, 2);
   $('#sbTime').textContent = fmtClock(NOW).replace(/ (AM|PM)/, '');
   const start = (location.hash || '').replace('#', '');

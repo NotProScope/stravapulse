@@ -105,6 +105,14 @@ kbd { background: var(--s3); border: 1px solid var(--line-2); border-radius: 6px
 /* ===================== Shared atoms ===================== */
 .ic { display: inline-block; vertical-align: middle; }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 16px 12px; min-height: 56px; }
+/* Sticky Home header: sits under the status bar, frosts once content scrolls beneath it */
+#screen-home { padding-top: 0; }
+.home-head { position: sticky; top: 0; z-index: 30; padding-top: 54px; margin-bottom: 4px; background: rgba(0, 0, 0, 0); border-bottom: 1px solid transparent; transition: background .25s ease, border-color .25s ease, backdrop-filter .25s ease; }
+.home-head .topbar { padding-bottom: 10px; position: relative; }
+.home-head.scrolled { background: rgba(12, 12, 14, .78); backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4); border-bottom-color: var(--line); }
+.home-title { position: absolute; left: 50%; transform: translate(-50%, 4px); font-weight: 800; font-size: 17px; opacity: 0; transition: opacity .25s ease, transform .25s ease; pointer-events: none; }
+.home-head.scrolled .home-title { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 520px) { .home-head { padding-top: max(8px, env(safe-area-inset-top)); } }
 .topbar-title { font-weight: 800; font-size: 17px; }
 .icon-btn { width: 42px; height: 42px; border-radius: 50%; background: var(--s2); display: grid; place-items: center; position: relative; color: var(--text); transition: background .2s; }
 .icon-btn:hover { background: var(--s3); }
