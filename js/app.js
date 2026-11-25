@@ -979,8 +979,15 @@ function organizerPage(m) {
 /* ---- Track ---- */
 function trackPage(t) {
   const ts = trackStatus(t), l = ts.open ? t.liveLanes : 0;
-  const nowH = NOW.getHours();
-  const bars = t.crowd.slice(5, 23).map((v, i) => { const hr = i + 5, live = hr === nowH && ts.open; const val = live ? l : v; return `<span class="${live ? 'now' : ''}" ${live ? `data-live="Now ${l}"` : ''} style="height:${Math.max(4, val / 8 * 100)}%"></span>`; }).join('');
+  // the orange "Now" bar follows the viewer's real clock (not the demo clock)
+  const real = new Date(), rh = real.getHours(), rhf = rh + real.getMinutes() / 60;
+  const realOpen = t.slots.some(([a, b]) => rhf >= a && rhf < b);
+  const bars = t.crowd.slice(5, 23).map((v, i, arr) => {
+    const hr = i + 5, live = hr === rh, val = live && !realOpen ? 0 : v;
+    const edge = i === 0 ? 'edge-l' : i === arr.length - 1 ? 'edge-r' : '';
+    return `<span class="${live ? `now ${edge}` : ''}" ${live ? `data-live="${realOpen ? `Now ${Math.round(v)}` : 'Now · closed'}"` : ''} style="height:${Math.max(4, val / 8 * 100)}%"></span>`;
+  }).join('');
+  const offChart = rh < 5 || rh > 22;
   const board = sessionsAt(t.id, new Date(+NOW - 30 * MIN), at(2, 23, 59));
   const rep = S.reports[t.id];
   const clubsHere = CLUBS.filter(c => miles(c, t) < 0.15), meetsHere = MEETS.filter(m => m.venue === t.id);
@@ -1004,7 +1011,7 @@ function trackPage(t) {
     <div class="section"><h3 class="section-title">Workout board</h3><p class="section-sub">Join a workout, not a stranger. Posted by runners training here.</p>
       ${board.length ? `<div class="board">${board.map(s => { const joined = planOf(s.id); return `<div class="bd">${av({ id: s.friend, name: s.who, initials: s.initials, hue: s.hue }, 'sm', !!s.friend)}<div class="bd-main"><div class="bd-t">${esc(s.workout)}</div><div class="bd-s">${esc(first(s.who))} · ${fmtDay(s.when)} ${fmtShort(s.when)} · ${esc(s.rest)} · ${s.joined + (joined && !s.mine ? 1 : 0)} joined${s.forPace ? ' · <span style="color:var(--orange-hi)">your pace</span>' : ''}</div></div>${s.mine ? tagHtml('Yours') : joined ? `<button class="btn xs done" data-action="join" data-id="${s.id}" aria-label="Leave">${ic('check', 14, 2.6)}</button>` : `<button class="btn xs ${s.forPace ? '' : 'ghost'}" data-action="join" data-id="${s.id}">Join</button>`}</div>`; }).join('')}</div>` : `<div class="card empty">No workouts posted for the next two days. Post one and runners at your pace will see it.</div>`}
     </div>
-    <div class="section"><h3 class="section-title">How busy it gets</h3><p class="section-sub">Lanes in use by hour, from Strava GPS on this track.</p>
+    <div class="section"><h3 class="section-title">How busy it gets</h3><p class="section-sub">Lanes in use by hour, from Strava GPS on this track.${offChart ? ` It’s ${fmtClock(real)} now, so the track is closed.` : ''}</p>
       <div class="card" style="padding:18px 14px 12px"><div class="bars">${bars}</div><div class="bars-axis"><span>5a</span><span>9a</span><span>1p</span><span>5p</span><span>10p</span></div></div></div>
     <div class="section"><h3 class="section-title">Getting in</h3><div class="list">
       <div class="li">${ic('gate', 20)}<div class="li-main"><div class="li-s" style="white-space:normal;color:var(--text);margin:0">${esc(t.gate)}</div></div></div>
