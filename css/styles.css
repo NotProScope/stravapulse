@@ -625,3 +625,36 @@ button.fact:hover { background: #18181b; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ===================== Photos ===================== */
+.hero-art.has-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hero-art.has-photo::after { background: linear-gradient(to bottom, rgba(0, 0, 0, .45) 0, rgba(0, 0, 0, .12) 28%, rgba(11, 11, 13, .62) 52%, rgba(11, 11, 13, .9) 75%, #0b0b0d 100%); }
+.hero > .photo-credit { position: absolute; z-index: 2; right: 12px; top: 106px; }
+.photo-credit { font-size: 10px; font-weight: 600; color: rgba(255, 255, 255, .8); background: rgba(0, 0, 0, .45); padding: 3px 7px; border-radius: 8px; text-decoration: none; max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.photo-credit:hover { color: #fff; }
+.sel-photo { position: relative; height: 118px; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--s2); }
+.sel-photo img { width: 100%; height: 100%; object-fit: cover; display: block; animation: fadeIn .4s ease; }
+.sel-photo .photo-credit { position: absolute; right: 8px; bottom: 8px; }
+.avatar.photo { background-size: cover; background-position: center; }
+
+/* ===================== Welcome + account ===================== */
+.gate { position: absolute; inset: 0; z-index: 75; background: #000; overflow-y: auto; scrollbar-width: none; animation: fadeIn .3s ease; }
+.gate::-webkit-scrollbar { display: none; }
+#gateHeat { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.gate-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0, 0, 0, .15) 0, rgba(0, 0, 0, .35) 35%, rgba(0, 0, 0, .92) 62%, #000 100%); }
+.gate-body { position: relative; min-height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 120px 22px 34px; }
+.gate-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--orange-hi); font-size: 14px; letter-spacing: .02em; }
+.gate h1 { font-size: 34px; line-height: 1.08; letter-spacing: -.03em; margin: 12px 0 10px; font-weight: 800; }
+.gate p { color: #c9c9cf; margin: 0; line-height: 1.45; }
+.gate .gate-note { color: var(--faint); font-size: 12px; text-align: center; margin-top: 16px; }
+.acct-list .li { background: none; }
+.gate-form { padding: 0 20px 40px; }
+.gate-form h2 { font-size: var(--fs-title); letter-spacing: -.02em; margin: 6px 0 0; }
+.fld { display: block; flex: 1; min-width: 0; }
+.fld > span { display: block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.fld > span em { font-style: normal; text-transform: none; letter-spacing: 0; color: var(--faint); font-weight: 500; }
+.two { display: flex; gap: 10px; }
+.photo-pick { display: flex; gap: 14px; align-items: center; margin-bottom: 18px; }
+.photo-drop { width: 72px; height: 72px; border-radius: 50%; background: var(--s2); border: 1.5px dashed var(--line-2); display: grid; place-items: center; color: var(--muted); cursor: pointer; overflow: hidden; flex: none; }
+.photo-drop img { width: 100%; height: 100%; object-fit: cover; }
+.form-err { color: #ff6b5b; font-size: 13.5px; font-weight: 600; min-height: 18px; margin-bottom: 8px; }

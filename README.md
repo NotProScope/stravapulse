@@ -67,6 +67,8 @@ Then open http://localhost:5179 in Chrome.
 | **Clubs** | Honest pace groups measured from recorded runs (actual average, how many dropped), upcoming runs with RSVP per date, route |
 | **People** | Never on the map. Shown as a list with proof of recent training. "Propose a run" offers time slots that fit both schedules, and accepting adds the run to your week. |
 | **Loop** | Plan → show up → official result → follow the runners you raced with → next meet already seeded |
+| **Accounts** | Create your own profile: name, optional photo and email, home base, running background and a recent 5K time, which sets your easy pace and race predictions. Each account keeps its own runs, plans and results. Log out, switch or edit from the You tab. There's no server, so accounts are saved on the device. The demo runner (Ian) is one tap away on the welcome screen. |
+| **Photos** | Real, openly licensed photos from Wikimedia Commons on track, meet, club and route pages and in the map preview. Each one is credited on screen (photographer and license, linking to the source). |
 | **Rest of the app** | Home feed (tap a venue or club to open it, kudos), inbox, Groups (your week, clubs, a sponsored series challenge), You (predictions, results, settings), Record |
 
 ## Code map (for iterating in Cursor)
@@ -77,7 +79,11 @@ css/styles.css  design tokens at the top (type scale, colors), then one section 
 js/streets.js   street + trail geometry with heat weights (generated)
 js/routes.js    club runs and popular routes along real paths (generated)
 js/data.js      tracks, workout sessions, clubs, meets, people, popular routes
+js/photos.js    photo credits (generated); images live in photos/
+js/account.js   on-device accounts
+js/record.js    GPS recorder
 tools/build_heat.py  regenerates streets.js + routes.js from an OpenStreetMap export
+tools/photos_*.py    finds and downloads openly licensed photos from Wikimedia Commons
 js/app.js       app logic in 10 commented sections
 ```
 
@@ -86,4 +92,4 @@ js/app.js       app logic in 10 commented sections
 - **Adding things:** a meet, club or workout added to `data.js` shows up on the map, the day strip, the list and the plan builder automatically.
 - **Sample data:** venue names are real places. Schedules, crowds, clubs, meets and people are invented, and the app says so.
 
-Map tiles © Esri, HERE, Garmin, © OpenStreetMap contributors. Street and trail geometry © OpenStreetMap contributors (ODbL), routed with OSRM. Leaflet 1.9.4.
+Map tiles © Esri, HERE, Garmin, © OpenStreetMap contributors. Street and trail geometry © OpenStreetMap contributors (ODbL), routed with OSRM. Photos from Wikimedia Commons under CC BY, CC BY-SA and CC0 licenses; credits are shown on each photo and listed in js/photos.js. Leaflet 1.9.4.

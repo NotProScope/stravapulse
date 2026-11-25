@@ -22,7 +22,7 @@ const pad2 = n => String(n).padStart(2, '0');
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const first = name => name.split(' ')[0];
 
-const STORE_KEY = 'strava-pulse-v3';
+const STORE_KEY = window.PULSE_STORE_KEY || 'strava-pulse-v3'; // set by account.js per signed-in runner
 const freshState = () => ({
   personalized: false, background: null, want: null,
   band: 60, layer: 'all', day: 0, part: 'all',
@@ -243,6 +243,8 @@ const av = (p, cls = 'sm', tap = true) => {
   return tap && id ? `<button class="avatar ${cls}" style="--h:${p.hue}" data-action="person" data-id="${id}" aria-label="${esc(p.name)}">${inner}</button>`
     : `<span class="avatar ${cls}" style="--h:${p.hue}">${inner}</span>`;
 };
+// you: your profile photo if you added one, otherwise your initials
+const meAv = (cls = '') => (ME.photo ? `<span class="avatar ${cls} photo" style="background-image:url('${ME.photo}')" role="img" aria-label="${esc(ME.name)}"></span>` : av({ hue: 15, initials: ME.initials }, cls, false));
 const avStack = (list, cls = 'xs', tap = false) => (list.length ? `<span class="avatars">${list.map(f => av(f, cls, tap)).join('')}</span>` : '');
 const tagHtml = (t, c = '') => `<span class="tag ${c}">${t}</span>`;
 function tile(it, state) {
@@ -307,6 +309,25 @@ function laneArt() {
   }
   s += '<path d="M300 0 L300 260" stroke="rgba(255,255,255,.5)" stroke-width="3" stroke-dasharray="8 8"/></svg>';
   return s;
+}
+
+/* ---- Real photos (Wikimedia Commons, openly licensed, credited on screen) ---- */
+const PHOTO_FOR = {
+  t1: 'drake', t2: 'smc', t3: 'venicehs', t4: 'unihigh', t5: 'culverhs',
+  m3: 'drake_meet', m10: 'drake_meet', m7: 'venice', m11: 'ballona', m4: 'westwood',
+  c1: 'westwood', c2: 'drake', c3: 'venicehs', c4: 'pier', c5: 'culverhs',
+  r1: 'ucla', r2: 'sanvicente', r3: 'pier', r4: 'ballona', r5: 'overlook',
+};
+function photoOf(it) {
+  if (typeof PHOTOS === 'undefined' || !it) return null;
+  return PHOTOS[PHOTO_FOR[it.id] || (it.venue && PHOTO_FOR[it.venue]) || (it.track && PHOTO_FOR[it.track])] || null;
+}
+const photoCredit = ph => `<a class="photo-credit" href="${esc(ph.page)}" target="_blank" rel="noopener" title="${esc(ph.title)}">Photo: ${esc(ph.artist.replace(/^User:/, ''))} · ${esc(ph.license)}</a>`;
+// page header art: a real photo when we have one, otherwise the drawn illustration
+function heroArt(it, fallback) {
+  const ph = photoOf(it);
+  if (!ph) return `<div class="hero-art">${fallback}</div>`;
+  return `<div class="hero-art has-photo"><img src="${ph.src}" alt="${esc(ph.title)}" decoding="async"></div>${photoCredit(ph)}`;
 }
 
 /* ============ 5. Map ============ */
@@ -553,7 +574,7 @@ function renderChips() {
   const w = curWin();
   const count = k => (k === 'route' ? ROUTES.length : k === 'track' ? tracksOpenIn(w).length : eventsIn(w, { layer: k }).length);
   $('#mapChips').innerHTML =
-    `<button class="chip lens ${S.band ? '' : 'off'}" data-action="lens" aria-label="Pace lens">${ic('target', 16, 2)}${S.band ? (S.target ? `${fmtPace(tgt())} ±${fmtPace(S.band)}` : `Your pace ±${fmtPace(S.band)}`) : 'Any pace'}</button>` +
+    `<button class="chip lens ${S.band ? '' : 'off'}" data-action="lens" aria-label="Pace lens">${ic('target', 16, 2)}${S.band ? `${fmtPace(tgt())} ±${fmtPace(S.band)}` : 'Any pace'}</button>` +
     LAYERS.map(([k, label]) => `<button class="chip ${S.layer === k ? 'on' : ''}" data-action="layer" data-layer="${k}" aria-pressed="${S.layer === k}">${label}${k === 'all' ? '' : `<span class="ct">${count(k)}</span>`}</button>`).join('');
 }
 
@@ -692,7 +713,7 @@ function renderPeek() {
     card = `<div class="week-strip">${ps.slice(0, 4).map(p => `<button class="wk" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><span class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></span><span><div class="wk-t">${esc(p.title)}</div><div class="wk-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></span></button>`).join('')}</div>`;
   }
   $('#sheetPeek').innerHTML =
-    `<div class="summary"><span><b>${ev.length}</b> runs & meets${S.band ? ` · <b class="pace" id="sumPace" data-v="${U.lastPace ?? atPace}">${U.lastPace ?? atPace}</b> at your pace` : ''} · <b>${tracks}</b> tracks open</span><button class="link" data-action="sheet-list">List ${ic('chev', 14, 2.2)}</button></div>${card}`;
+    `<div class="summary"><span><b>${ev.length}</b> runs & meets${S.band ? ` · <b class="pace" id="sumPace" data-v="${U.lastPace ?? atPace}">${U.lastPace ?? atPace}</b> fit ${fmtPace(tgt())}` : ''} · <b>${tracks}</b> tracks open</span><button class="link" data-action="sheet-list">List ${ic('chev', 14, 2.2)}</button></div>${card}`;
   const sp = $('#sumPace');
   if (sp) tweenNum(sp, atPace);
   U.lastPace = atPace;
@@ -702,8 +723,8 @@ function rowItem(it, when, opts = {}) {
   const st = opts.state || 'on';
   let eyebrow = `${fmtShort(when)} · ${TYPE_LABEL[it.type]}`, title = it.name, sub = '';
   if (it.type === 'meet') { const h = heatFor(it); sub = `${it.forPace ? tagHtml(h ? `You: ${h.name}` : 'Your level', 'pace') : tagHtml(it.fitNote || 'Not your pace')}<span>${going(it)}</span>`; }
-  if (it.type === 'club') { const s = schedFor(it, when); sub = `${paceOK(it) ? tagHtml('Your pace', 'pace') : tagHtml(it.sprint ? 'Sprinters' : 'Faster groups')}<span>${esc(s.label)} · ${it.going} going</span>`; }
-  if (it.type === 'session') { const t = trackOf(it.track); title = `${first(it.who)}: ${it.workout}`; sub = `${it.forPace ? tagHtml('Your pace', 'pace') : tagHtml('Faster')}<span>${esc(t.name)} · ${it.joined} joined</span>`; }
+  if (it.type === 'club') { const s = schedFor(it, when); sub = `${paceOK(it) ? tagHtml(myGroup(it) ? `${fmtPace(myGroup(it).pace)} group` : `Fits ${fmtPace(tgt())}`, 'pace') : tagHtml(it.sprint ? 'Sprinters' : 'Faster groups')}<span>${esc(s.label)} · ${it.going} going</span>`; }
+  if (it.type === 'session') { const t = trackOf(it.track); title = `${first(it.who)}: ${it.workout}`; sub = `${it.forPace ? tagHtml(`Fits ${fmtPace(tgt())}`, 'pace') : tagHtml('Faster')}<span>${esc(t.name)} · ${it.joined} joined</span>`; }
   if (it.type === 'track') { const ts = trackStatus(it); const l = lanesAt(it, when); eyebrow = `${ts.open && S.day === 0 ? ts.text : 'Open ' + fmtShort(when)} · ${it.lights ? 'Lights' : 'No lights'}`; sub = `${S.day === 0 && ts.open ? tagHtml(`${crowdWord(l)} · ${l}/8 lanes`, l <= 3 ? 'ok' : 'warn') : ''}<span>${it.publicNow ? 'Public' : 'Students + members'} · ${distTxt(it)}</span>`; }
   const plan = st === 'plan' ? ' · <span class="hot">In your week</span>' : '';
   return `<button class="row-item ${opts.dim ? 'dim' : ''}" data-action="open" data-id="${it.type === 'session' ? it.track : it.id}">${tile(it, st)}<div class="ri-main"><div class="ri-eyebrow">${eyebrow}${plan}</div><div class="ri-t">${esc(title)}</div><div class="ri-s">${sub}</div></div>${ic('chev', 18)}</button>`;
@@ -780,6 +801,7 @@ function renderSel(it) {
   const note = !st.inWin && when ? `<div class="sel-line" style="margin-top:12px;color:var(--yellow)">${ic('calendar', 18)}<span>Not ${dayTitle().toLowerCase()}. Next: ${fmtWhen(when)}</span></div>` : '';
   $('#sheetSel').innerHTML =
     `<div class="sel-nav"><button class="link muted" data-action="sheet-peek">${ic('back', 14, 2.4)} All</button><button class="icon-btn" style="width:32px;height:32px" data-action="deselect" aria-label="Close">${ic('close', 16, 2.2)}</button></div>` +
+    (photoOf(it) ? `<div class="sel-photo"><img src="${photoOf(it).src}" alt="${esc(photoOf(it).title)}" decoding="async">${photoCredit(photoOf(it))}</div>` : '') +
     `<div class="sel-top">${tile(it, st.state === 'out' ? 'off' : st.state)}<div style="min-width:0"><div class="sel-eyebrow">${eyebrow}</div><div class="sel-title">${esc(it.name)}</div><div class="sel-meta">${meta}</div></div></div>` +
     note + `<div class="sel-lines">${lines.map(([i, t]) => `<div class="sel-line">${ic(i, 18)}<span>${t}</span></div>`).join('')}</div>` +
     `<div class="sel-actions">${actions}</div>`;
@@ -869,7 +891,7 @@ function meetPage(m) {
     ? `<div class="predict"><div><div class="p-k">Strava predicts</div><div class="p-num">${fmtPace(ME.predict.Mile)}</div></div><div><div class="p-t">Mile → ${h.name} (${h.range})</div><div class="p-k">From your 5K best effort (${ME.best5k}) · ${Math.round(m.registered / 4)} runners in your heat range</div></div></div>`
     : !m.forPace ? `<div class="section" style="margin-top:0"><div class="callout neutral">${ic('info', 20)}<div><b>Not a fit yet.</b><span class="muted">${esc(m.fitDetail || '')} Strava predicts a ${fmtPace(ME.predict.Mile)} mile for you. Try Westside Mile Night.</span></div></div></div>` : '';
   const html = `${navBar(m.name)}
-    <div class="hero"><div class="hero-art">${laneArt()}</div>
+    <div class="hero has-photo-hero">${heroArt(m, laneArt())}
       <div class="eyebrow"><span class="hot">${esc(m.series)}</span></div><h2>${esc(m.name)}</h2>
       <div class="hero-sub">${esc(venue ? venue.name : m.place || '')} · ${fmtWhen(m.when)}</div>
       <div class="tags">${tags.map(t => tagHtml(t)).join('')}</div></div>
@@ -964,7 +986,7 @@ function trackPage(t) {
   const clubsHere = CLUBS.filter(c => miles(c, t) < 0.15), meetsHere = MEETS.filter(m => m.venue === t.id);
   const hoursRows = Array.from({ length: 7 }, (_, i) => { const d = at(i, 12); return `<div class="${i === 0 ? 'today' : ''}"><span>${i === 0 ? 'Today' : DAY_FULL[d.getDay()]}</span><span>${t.slots.map(([a, b]) => `${fmtHour(a)}–${fmtHour(b)}`).join(', ')}</span></div>`; }).join('');
   const html = `${navBar(t.name)}
-    <div class="hero" style="padding-bottom:22px"><div class="hero-art" style="display:grid;place-items:center;padding-bottom:40px">${ovalSvg(l, 300, 177)}</div>
+    <div class="hero" style="padding-bottom:22px">${heroArt(t, `<div style="display:grid;place-items:center;height:100%;padding-bottom:40px">${ovalSvg(l, 300, 177)}</div>`)}
       <div style="height:120px"></div>
       <div class="eyebrow">${t.publicNow ? 'Public track' : 'Campus track'} · ${esc(t.area)}</div><h2>${esc(t.name)}</h2>
       <div class="hero-sub">${ts.open ? `<b style="color:var(--green)">${ts.text}</b> · ${t.lights ? 'lights on' : 'no lights'} · ${l} of 8 lanes in use` : ts.text}</div></div>
@@ -978,7 +1000,7 @@ function trackPage(t) {
       <div class="row" style="justify-content:space-between"><div><b>${rep ? 'Thanks, that helps everyone' : `Confirmed open ${t.confirmedMin} min ago`}</b><div class="muted" style="font-size:13px;margin-top:2px">Hours checked against ${t.verifiedBy} athletes’ GPS this week</div></div>${ic('shield', 22)}</div>
       <div class="report-row">${[['open', 'unlock', 'Open'], ['locked', 'lock', 'Locked'], ['practice', 'club', 'Team practice']].map(([k, i, lab]) => `<button class="report ${rep === k ? 'on' : ''}" data-action="report" data-id="${t.id}" data-k="${k}">${ic(i, 16)}${lab}</button>`).join('')}</div>
     </div></div>
-    <div class="section" style="margin-top:12px">${t.youHaveAccess ? `<div class="callout">${ic('shield', 20)}<div><b>${esc(t.youHaveAccess)}</b><span class="muted">${esc(t.access)}</span></div></div>` : `<div class="callout neutral">${ic('info', 20)}<div><b>Who can use it</b><span class="muted">${esc(t.access)}</span></div></div>`}</div>
+    <div class="section" style="margin-top:12px">${t.youHaveAccess && ME.school === 'UCLA' ? `<div class="callout">${ic('shield', 20)}<div><b>${esc(t.youHaveAccess)}</b><span class="muted">${esc(t.access)}</span></div></div>` : `<div class="callout neutral">${ic('info', 20)}<div><b>Who can use it</b><span class="muted">${esc(t.access)}</span></div></div>`}</div>
     <div class="section"><h3 class="section-title">Workout board</h3><p class="section-sub">Join a workout, not a stranger. Posted by runners training here.</p>
       ${board.length ? `<div class="board">${board.map(s => { const joined = planOf(s.id); return `<div class="bd">${av({ id: s.friend, name: s.who, initials: s.initials, hue: s.hue }, 'sm', !!s.friend)}<div class="bd-main"><div class="bd-t">${esc(s.workout)}</div><div class="bd-s">${esc(first(s.who))} · ${fmtDay(s.when)} ${fmtShort(s.when)} · ${esc(s.rest)} · ${s.joined + (joined && !s.mine ? 1 : 0)} joined${s.forPace ? ' · <span style="color:var(--orange-hi)">your pace</span>' : ''}</div></div>${s.mine ? tagHtml('Yours') : joined ? `<button class="btn xs done" data-action="join" data-id="${s.id}" aria-label="Leave">${ic('check', 14, 2.6)}</button>` : `<button class="btn xs ${s.forPace ? '' : 'ghost'}" data-action="join" data-id="${s.id}">Join</button>`}</div>`; }).join('')}</div>` : `<div class="card empty">No workouts posted for the next two days. Post one and runners at your pace will see it.</div>`}
     </div>
@@ -1007,7 +1029,7 @@ function clubPage(c) {
   const n = nextOcc(c), f = friendsOf(c), mine = myGroup(c);
   const upcoming = occurrences(c, NOW, at(14, 23, 59)).slice(0, 4);
   const html = `${navBar(c.name)}
-    <div class="hero" style="padding-top:110px"><div class="hero-art">${routeSvg(c.route, 390, 300, { pad: 60 })}</div>
+    <div class="hero" style="padding-top:110px">${heroArt(c, routeSvg(c.route, 390, 300, { pad: 60 }))}
       <div style="height:90px"></div>
       <div class="eyebrow">Run club · ${c.members} members</div><h2>${esc(c.name)}</h2>
       <div class="hero-sub">${esc(c.about)}</div>
@@ -1053,7 +1075,7 @@ function partnerPage(p) {
   const html = `${navBar(p.name)}
     <div class="hero" style="padding-top:110px">
       ${av(p, 'lg', false)}<h2 style="margin-top:14px">${esc(p.name)}</h2><div class="hero-sub">${esc(p.bio)}</div>
-      <div class="tags">${friend ? tagHtml('Friend', 'ok') : ''}${paceOK({ ...p, type: 'partner' }) ? tagHtml('Your pace', 'pace') : ''}${tagHtml(esc(p.focus))}</div></div>
+      <div class="tags">${friend ? tagHtml('Friend', 'ok') : ''}${paceOK({ ...p, type: 'partner' }) ? tagHtml(`Fits ${fmtPace(tgt())}`, 'pace') : ''}${tagHtml(esc(p.focus))}</div></div>
     <div class="facts">
       <div class="fact"><div class="k">Easy pace</div><div class="v">${fmtPace(p.pace)} /mi<small>You: ${fmtPace(ME.pace)}</small></div></div>
       <div class="fact"><div class="k">Last 4 weeks</div><div class="v">${esc(p.week)}<small>${esc(p.usual)}</small></div></div>
@@ -1358,19 +1380,19 @@ function homeActivities() {
   const list = [];
   S.results.slice().reverse().forEach(r => {
     const m = MEETS.find(x => x.id === r.meetId), main = r.items[0];
-    list.push({ id: 'r-' + r.meetId, who: ME.name, avatar: av({ hue: 15, initials: ME.initials }, '', false), meta: `${fmtDay(new Date(r.date))} · ${m.venue ? venueLink(m.venue, trackOf(m.venue).name) : esc(m.place || '')}`,
+    list.push({ id: 'r-' + r.meetId, who: ME.name, avatar: meAv(''), meta: `${fmtDay(new Date(r.date))} · ${m.venue ? venueLink(m.venue, trackOf(m.venue).name) : esc(m.place || '')}`,
       title: m.name, official: `${main.event} ${main.time} · ${main.heat} · ${main.place} of ${main.field}`, stats: [['Events', r.items.length], ['Best', main.time], ['Place', `${main.place}/${main.field}`]],
       note: 'Next in the series: Meet 3', noteId: 'm5', noteIcon: 'flag', kudos: 23 });
   });
   S.activities.slice().reverse().forEach(a => {
     const d = new Date(a.date), best = a.splits && a.splits.length ? Math.min(...a.splits) : null;
-    list.push({ id: a.id, who: ME.name, avatar: av({ hue: 15, initials: ME.initials }, '', false), meta: `${fmtDay(d)} at ${fmtClock(d)} · ${a.mode === 'sim' ? 'Simulated' : 'Recorded with GPS'}`,
+    list.push({ id: a.id, who: ME.name, avatar: meAv(''), meta: `${fmtDay(d)} at ${fmtClock(d)} · ${a.mode === 'sim' ? 'Simulated' : 'Recorded with GPS'}`,
       title: a.title, stats: [['Distance', a.dist.toFixed(2) + ' mi'], ['Pace', (a.pace ? fmtPace(a.pace) : '–:––') + ' /mi'], ['Time', fmtDur(a.time)]],
       map: a.pts && a.pts.length > 1 ? routeSvg(a.pts, 390, 200, { pad: 22 }) : '', note: best ? `${a.splits.length} mile split${a.splits.length > 1 ? 's' : ''} · fastest ${fmtDur(best)}` : 'View activity', noteAction: 'activity', noteId: a.id, noteIcon: 'timer', kudos: 0 });
   });
   list.push(
     { id: 'a-kai', who: 'Kai Nakamura', avatar: av(FRIENDS.kai, ''), meta: `Yesterday at 6:31 PM · ${venueLink('t1', 'Drake Stadium')}`, title: 'Track intervals · 6 × 400m', stats: [['Distance', '4.20 mi'], ['Pace', '7:58 /mi'], ['Time', '33m 29s']], kudos: 14, note: 'Workout with Bruin Sunrise Milers', noteId: 'c2', noteIcon: 'club' },
-    { id: 'a-ian', who: ME.name, avatar: av({ hue: 15, initials: ME.initials }, '', false), meta: 'November 3 at 6:17 AM · Los Angeles, California', title: 'Morning Run', stats: [['Distance', '4.08 mi'], ['Pace', '10:42 /mi'], ['Time', '43m 44s']], note: 'Your fastest 5K ever', noteIcon: 'trophy', map: trackRunSvg(), kudos: 6 },
+    ...(ME.isDemo ? [{ id: 'a-ian', who: ME.name, avatar: meAv(''), meta: 'November 3 at 6:17 AM · Los Angeles, California', title: 'Morning Run', stats: [['Distance', '4.08 mi'], ['Pace', '10:42 /mi'], ['Time', '43m 44s']], note: 'Your fastest 5K ever', noteIcon: 'trophy', map: trackRunSvg(), kudos: 6 }] : []),
     { id: 'a-lena', who: 'Lena Ortiz', avatar: av(FRIENDS.lena, ''), meta: `2 days ago · ${venueLink('t3', 'Venice High Track')}`, title: 'Track night, 5 × 400m', stats: [['Distance', '3.10 mi'], ['Pace', '9:12 /mi'], ['Time', '28m 31s']], kudos: 9, note: 'With Venice Track Collective', noteId: 'c3', noteIcon: 'club' },
   );
   return list;
@@ -1382,22 +1404,21 @@ function renderHome() {
   const ps = plansSorted();
   const scrolled = $('#screen-home').scrollTop > 8;
   $('#screen-home').innerHTML = `
-    <header class="home-head ${scrolled ? 'scrolled' : ''}"><div class="topbar"><button data-tab="you" aria-label="Your profile">${av({ hue: 15, initials: ME.initials }, '', false)}</button>
+    <header class="home-head ${scrolled ? 'scrolled' : ''}"><div class="topbar"><button data-tab="you" aria-label="Your profile">${meAv('')}</button>
       <span class="home-title" aria-hidden="true">Home</span>
       <div class="row"><button class="icon-btn" data-action="inbox" aria-label="Messages">${ic('chat', 21)}</button><button class="icon-btn" data-action="inbox" aria-label="Notifications">${ic('bell', 21)}<span class="badge-dot">3</span></button></div></div></header>
     <div class="pulse-card">
       <canvas id="homeHeat" width="732" height="336"></canvas>
       <div class="pc-body"><div class="pc-k"><span class="live-dot"></span> Pulse · near UCLA</div>
         <h3>${ev.length} runs & meets near you tonight</h3>
-        <div class="pc-stats">${atPace} at your pace · ${tracks} tracks open now · ${friendsGoing} friend${friendsGoing === 1 ? '' : 's'} going</div>
+        <div class="pc-stats">${atPace} fit ${fmtPace(tgt())} · ${tracks} tracks open now · ${friendsGoing} friend${friendsGoing === 1 ? '' : 's'} going</div>
         <div class="pc-actions">${ps.length ? `<button class="btn" data-tab="maps">Open the map</button>` : `<button class="btn" data-action="go-plan">Plan my first week</button><button class="btn ghost" data-tab="maps">Map</button>`}</div></div></div>
     ${ps.length ? `<div class="home-plans"><div class="section-title" style="font-size:17px;margin:8px 4px 10px">Your week</div><div class="list">${ps.slice(0, 4).map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div></div>` : ''}
     <div style="height:16px"></div>
     ${homeActivities().map(activityCard).join('')}`;
   drawHomeHeat(ev);
 }
-function drawHomeHeat(items) {
-  const c = $('#homeHeat');
+function drawHomeHeat(items, c = $('#homeHeat'), big = false) {
   if (!c) return;
   const ctx = c.getContext('2d'), W = c.width, H = c.height;
   const box = { n: 34.085, s: 33.975, w: -118.53, e: -118.33 };
@@ -1459,12 +1480,19 @@ function renderYou() {
   const runs = 1 + S.activities.length + S.results.length;
   const persona = { hs: 'Ex-HS athlete', new: 'New runner', casual: 'Runs a few times a week' }[S.background];
   $('#screen-you').innerHTML = `<div class="topbar"><span style="width:42px"></span><div class="topbar-title">You</div><span style="width:42px"></span></div>
-    <div class="profile">${av({ hue: 15, initials: ME.initials }, 'lg', false)}<div><h2>${esc(ME.name)}</h2><div class="muted" style="font-size:13.5px">${esc(ME.city)} · ${ME.school}</div><div class="tags" style="margin-top:8px">${tagHtml(`${fmtPace(ME.pace)}/mi easy`)}${persona ? tagHtml(persona) : ''}</div></div></div>
+    <div class="profile">${meAv('lg')}<div><h2>${esc(ME.name)}</h2><div class="muted" style="font-size:13.5px">${esc(ME.city)} · ${ME.school}</div><div class="tags" style="margin-top:8px">${tagHtml(`${fmtPace(ME.pace)}/mi easy`)}${persona ? tagHtml(persona) : ''}</div></div></div>
     <div class="section"><h3 class="section-title">Strava predicts</h3><div class="stat-grid">
       <div class="stat"><div class="v">${fmtPace(ME.predict.Mile)}</div><div class="k">Mile</div></div><div class="stat"><div class="v">${fmtPace(ME.predict['400m'])}</div><div class="k">400m</div></div>
       <div class="stat"><div class="v">${ME.best5k}</div><div class="k">5K best effort</div></div><div class="stat"><div class="v">${runs}</div><div class="k">Activities this month</div></div></div></div>
     <div class="section"><h3 class="section-title">Your week</h3>${ps.length ? `<div class="list">${ps.map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div>` : '<p class="section-sub">Nothing planned yet. Open Maps to find a run.</p>'}</div>
     ${S.results.length ? `<div class="section"><h3 class="section-title">Race results</h3>${S.results.map(r => { const m = MEETS.find(x => x.id === r.meetId), x = r.items[0]; return `<button class="official" style="width:100%;margin-bottom:8px;text-align:left" data-action="detail" data-id="${m.id}"><div class="o-k">${ic('shield', 13, 2.4)} Official · ${esc(m.name)}</div><div class="o-t" style="font-size:30px">${x.time}</div><div class="o-s">${esc(x.event)} · ${x.heat} · ${x.place} of ${x.field}</div></button>`; }).join('')}</div>` : ''}
+    <div class="section"><h3 class="section-title">Account</h3><div class="list">
+      ${ME.isDemo
+        ? `<button class="li" data-action="acct-signup"><span class="tile on">${ic('plus', 20, 2)}</span><div class="li-main"><div class="li-t">Create your own account</div><div class="li-s">You’re using the demo runner, Ian</div></div>${ic('chev', 18)}</button>`
+        : `<button class="li" data-action="acct-edit"><span class="tile">${ic('person', 20, 2)}</span><div class="li-main"><div class="li-t">Edit profile</div><div class="li-s">Name, photo, home base, 5K time</div></div>${ic('chev', 18)}</button>`}
+      <button class="li" data-action="acct-switch"><span class="tile">${ic('club', 20, 2)}</span><div class="li-main"><div class="li-t">Switch account</div><div class="li-s">${ACCT.list.length} account${ACCT.list.length === 1 ? '' : 's'} on this device</div></div>${ic('chev', 18)}</button>
+      <button class="li" data-action="acct-logout"><span class="tile">${ic('back', 20, 2)}</span><div class="li-main"><div class="li-t">Log out</div><div class="li-s">Your runs stay saved on this device</div></div></button>
+    </div></div>
     <div class="section"><h3 class="section-title">Pulse settings</h3><div class="list">
       <button class="li" data-action="lens"><span class="tile">${ic('target', 20, 2)}</span><div class="li-main"><div class="li-t">Pace lens</div><div class="li-s">${S.band ? `Within ±${fmtPace(S.band)} of ${fmtPace(tgt())}/mi${S.target ? ' (custom)' : ''}` : 'Off'}</div></div>${ic('chev', 18)}</button>
       <button class="li" data-action="redo-personalize"><span class="tile">${ic('pin', 20, 2)}</span><div class="li-main"><div class="li-t">Background & goals</div><div class="li-s">${persona || 'Not set'}</div></div>${ic('chev', 18)}</button>
@@ -1493,6 +1521,7 @@ function openDetail(id) {
 
 const ACTIONS = {
   ...REC_ACTIONS,
+  ...ACCT_ACTIONS,
   back: () => popPage(),
   share: () => toast('Share card copied: a story-sized image with your route and result', 'share'),
   toast: el => toast(el.dataset.msg, el.dataset.icon || 'check'),
@@ -1600,6 +1629,9 @@ function boot() {
   $('#sbTime').textContent = fmtClock(NOW).replace(/ (AM|PM)/, '');
   const start = (location.hash || '').replace('#', '');
   setTab(['home', 'maps', 'workout', 'groups', 'you'].includes(start) ? start : 'home');
+  // first visit on this device: welcome + create account (the demo runner is one tap away)
+  if (!ACCT.cur) acctGate('welcome');
+  else if (S.welcome) { S.welcome = false; save(); setTimeout(() => toast(`Welcome, ${first(ME.name)}. Your pace lens is set to ${fmtPace(ME.pace)}/mi.`, 'check', 3600), 400); }
 }
 
 boot();
