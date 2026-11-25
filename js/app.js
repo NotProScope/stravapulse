@@ -683,7 +683,7 @@ function renderSheetHead() {
     const d = at(i, 12);
     const n = eventsIn(windowFor(i, S.part)).length;
     const hasPlan = S.plans.some(p => dayDiff(new Date(p.when)) === i);
-    days += `<button class="day ${i === S.day ? 'on' : ''}" data-action="day" data-i="${i}" aria-pressed="${i === S.day}"><small>${i === 0 ? 'Today' : DAY[d.getDay()]}</small><b>${d.getDate()}</b><span class="cnt">${n || '–'}</span>${hasPlan ? '<i class="pdot"></i>' : ''}</button>`;
+    days += `<button class="day ${i === S.day ? 'on' : ''} ${hasPlan ? 'planned' : ''}" data-action="day" data-i="${i}" aria-pressed="${i === S.day}"${hasPlan ? ' aria-label="' + (i === 0 ? 'Today' : DAY_FULL[d.getDay()]) + ', you have a plan"' : ''}><small>${i === 0 ? 'Today' : DAY[d.getDay()]}</small><b>${d.getDate()}</b><span class="cnt">${n || '–'}</span></button>`;
   }
   $('#sheetHead').innerHTML =
     `<div class="sh-row"><div class="sh-title">${dayTitle()}<span class="sh-date">${fmtDate(d0)}</span></div>` +
@@ -1471,8 +1471,9 @@ function renderGroups() {
     const ps = plansSorted();
     body = `<div class="section" style="margin-top:16px">${ps.length ? `<div class="list">${ps.map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div>` : `<div class="card empty">Nothing planned yet.<br><br><button class="btn sm" data-action="go-plan">Plan my first week</button></div>`}</div>`;
   }
-  $('#screen-groups').innerHTML = `<div class="topbar"><span style="width:42px"></span><div class="topbar-title">Groups</div><span style="width:42px"></span></div>
-    <div class="tabs2">${[['plans', 'Your week'], ['challenges', 'Challenges'], ['clubs', 'Clubs']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-action="groups-tab" data-t="${k}" aria-pressed="${tab === k}"><span>${l}</span></button>`).join('')}</div>${body}`;
+  const scrolled = $('#screen-groups').scrollTop > 8;
+  $('#screen-groups').innerHTML = `<header class="home-head has-tabs ${scrolled ? 'scrolled' : ''}"><div class="topbar"><span style="width:42px"></span><div class="topbar-title">Groups</div><span style="width:42px"></span></div>
+    <div class="tabs2">${[['plans', 'Your week'], ['challenges', 'Challenges'], ['clubs', 'Clubs']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-action="groups-tab" data-t="${k}" aria-pressed="${tab === k}"><span>${l}</span></button>`).join('')}</div></header>${body}`;
 }
 
 function renderYou() {
@@ -1620,11 +1621,11 @@ function boot() {
     if (e.key.toLowerCase() === 'r' && e.shiftKey) resetDemo();
   });
   initSheet();
-  // Home header stays pinned; it picks up a frosted background once you scroll
-  $('#screen-home').addEventListener('scroll', e => {
+  // Home and Groups headers stay pinned; they pick up a frosted background once you scroll
+  ['#screen-home', '#screen-groups'].forEach(sel => $(sel).addEventListener('scroll', e => {
     const h = $('.home-head', e.currentTarget);
     if (h) h.classList.toggle('scrolled', e.currentTarget.scrollTop > 8);
-  }, { passive: true });
+  }, { passive: true }));
   $('#recenterFab').innerHTML = ic('nav', 19, 2);
   $('#sbTime').textContent = fmtClock(NOW).replace(/ (AM|PM)/, '');
   const start = (location.hash || '').replace('#', '');
