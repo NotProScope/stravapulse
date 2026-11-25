@@ -1456,6 +1456,10 @@ const CHALLENGES = [
   { id: 'ch1', title: 'Winter Twilight Series', sub: 'Race 3 all-comers meets this winter', icon: 'flag', sponsor: 'Northline Running', n: '2,418 joined' },
   { id: 'ch2', title: 'Track nights', sub: 'Join 3 workouts on a public track this month', icon: 'bolt', n: '5,902 joined' },
   { id: 'ch3', title: 'Bring a friend', sub: 'RSVP to a club run with a friend', icon: 'club', n: '1,377 joined' },
+  { id: 'ch4', title: 'Turkey Trot week', sub: 'Run any 5K between Thanksgiving and Sunday', icon: 'trophy', n: '8,240 joined' },
+  { id: 'ch5', title: 'Five new routes', sub: 'Run 5 routes you haven’t run before in December', icon: 'route', n: '3,115 joined' },
+  { id: 'ch6', title: 'Dawn patrol', sub: 'Make 4 club runs that start before 7 AM', icon: 'clock', n: '944 joined' },
+  { id: 'ch7', title: 'Sub-25 5K block', sub: 'Six weeks of track nights at your pace, then a time trial', icon: 'timer', n: '2,071 joined' },
 ];
 function renderGroups() {
   const tab = U.groupsTab;
@@ -1466,14 +1470,36 @@ function renderGroups() {
       ${clubs.map(({ c, n, g }) => `<button class="club-row" data-action="detail" data-id="${c.id}">${tile(c, g ? 'on' : 'off')}<div class="li-main"><div class="li-t">${esc(c.name)}</div><div class="li-s">${n ? fmtWhen(n) : '–'} · ${distTxt(c)}</div><div class="tags" style="margin-top:6px">${g ? tagHtml(`Your group ran ${g.actual}`, 'pace') : tagHtml(c.sprint ? 'Sprinters' : 'Faster groups')}${rsvpOf(c, n) ? tagHtml('Going', 'ok') : ''}</div></div>${ic('chev', 18)}</button>`).join('')}
       <div class="section"><button class="btn block ghost" data-action="go-map" data-layer="club">${ic('maps', 18)} See clubs on the map</button></div>`;
   } else if (tab === 'challenges') {
-    body = `<div class="section" style="margin-top:16px">${CHALLENGES.map(ch => `<div class="challenge"><span class="ch-badge">${ic(ch.icon, 26, 2)}</span><div class="li-main">${ch.sponsor ? `<div class="sponsor">Sponsored · ${esc(ch.sponsor)}</div>` : ''}<div class="li-t">${ch.title}</div><div class="li-s" style="white-space:normal">${ch.sub} · ${ch.n}</div></div><button class="btn xs ${S.challenges[ch.id] ? 'done' : 'ghost'}" data-action="join-challenge" data-id="${ch.id}">${S.challenges[ch.id] ? 'Joined' : 'Join'}</button></div>`).join('')}</div>`;
+    const joined = CHALLENGES.filter(ch => S.challenges[ch.id]).length;
+    body = `<div class="section" style="margin-top:16px"><h3 class="section-title">This season</h3><p class="section-sub">${joined ? `You’ve joined ${joined} of ${CHALLENGES.length}. Progress fills in as you run.` : 'Join one and it counts the runs you already do.'}</p></div>
+      <div class="section" style="margin-top:0">${CHALLENGES.map(ch => `<div class="challenge"><span class="ch-badge">${ic(ch.icon, 26, 2)}</span><div class="li-main">${ch.sponsor ? `<div class="sponsor">Sponsored · ${esc(ch.sponsor)}</div>` : ''}<div class="li-t">${ch.title}</div><div class="li-s" style="white-space:normal">${ch.sub} · ${ch.n}</div></div><button class="btn xs ${S.challenges[ch.id] ? 'done' : 'ghost'}" data-action="join-challenge" data-id="${ch.id}">${S.challenges[ch.id] ? 'Joined' : 'Join'}</button></div>`).join('')}</div>`;
   } else {
     const ps = plansSorted();
-    body = `<div class="section" style="margin-top:16px">${ps.length ? `<div class="list">${ps.map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div>` : `<div class="card empty">Nothing planned yet.<br><br><button class="btn sm" data-action="go-plan">Plan my first week</button></div>`}</div>`;
+    // every day this week you haven't planned yet, with the best nearby fit at your pace
+    const planned = new Set(ps.map(p => dayDiff(p.date)));
+    const open = [];
+    for (let i = 0; i < 7; i++) {
+      if (planned.has(i)) continue;
+      const w = windowFor(i, 'all');
+      const ev = eventsIn(w).filter(e => e.name).map(e => ({ e, t: occurrences(e, w.start, w.end)[0] }))
+        .sort((a, b) => (paceOK(b.e) - paceOK(a.e)) || (a.t - b.t));
+      open.push({ i, d: at(i, 12), ev });
+    }
+    const openRow = ({ i, d, ev }) => {
+      const tileHtml = `<div class="date-tile"><span><small>${i === 0 ? 'Today' : DAY[d.getDay()]}</small><b>${d.getDate()}</b></span></div>`;
+      if (!ev.length) return `<div class="li">${tileHtml}<div class="li-main"><div class="li-t">Rest day</div><div class="li-s">Nothing scheduled nearby</div></div></div>`;
+      const { e, t } = ev[0], fits = ev.filter(x => paceOK(x.e)).length;
+      return `<button class="li" data-action="detail" data-id="${e.id}">${tileHtml}<div class="li-main"><div class="li-t">${esc(e.name)}</div><div class="li-s">${fmtClock(t)} · ${distTxt(e)}${fits ? ` · ${fits} fit ${fmtPace(tgt())}` : ''}</div></div>${ic('chev', 18)}</button>`;
+    };
+    body = `<div class="section" style="margin-top:16px"><h3 class="section-title">Planned</h3>${ps.length ? `<div class="list">${ps.map(p => `<button class="li" data-action="open" data-id="${p.kind === 'session' ? p.track : p.ref}"><div class="date-tile on"><span><small>${DAY[p.date.getDay()]}</small><b>${p.date.getDate()}</b></span></div><div class="li-main"><div class="li-t">${esc(p.title)}</div><div class="li-s">${fmtShort(p.date)} · ${esc(p.sub)}</div></div>${ic('chev', 18)}</button>`).join('')}</div>` : `<div class="card empty">Nothing planned yet.<br><br><button class="btn sm" data-action="go-plan">Plan my first week</button></div>`}</div>
+      ${open.length ? `<div class="section"><h3 class="section-title">Open days</h3><p class="section-sub">The best nearby option each day, picked for ${fmtPace(tgt())}/mi.</p><div class="list">${open.map(openRow).join('')}</div>
+        <button class="btn block ghost" style="margin-top:12px" data-action="go-plan">${ic('calendar', 18)} Fill my week</button></div>` : ''}`;
   }
-  const scrolled = $('#screen-groups').scrollTop > 8;
-  $('#screen-groups').innerHTML = `<header class="home-head has-tabs ${scrolled ? 'scrolled' : ''}"><div class="topbar"><span style="width:42px"></span><div class="topbar-title">Groups</div><span style="width:42px"></span></div>
+  const scr = $('#screen-groups');
+  scr.innerHTML = `<header class="home-head has-tabs"><div class="topbar"><span style="width:42px"></span><div class="topbar-title">Groups</div><span style="width:42px"></span></div>
     <div class="tabs2">${[['plans', 'Your week'], ['challenges', 'Challenges'], ['clubs', 'Clubs']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" data-action="groups-tab" data-t="${k}" aria-pressed="${tab === k}"><span>${l}</span></button>`).join('')}</div></header>${body}`;
+  // decide the frosted state after the new content is in (the scroll position may have clamped)
+  $('.home-head', scr).classList.toggle('scrolled', scr.scrollTop > 8);
 }
 
 function renderYou() {
@@ -1585,7 +1611,7 @@ const ACTIONS = {
   reset: () => resetDemo(),
   'go-map': el => { if (el.dataset.layer) { S.layer = el.dataset.layer; save(); } setTab('maps'); },
   kudos: el => { S.kudos[el.dataset.id] = !S.kudos[el.dataset.id]; save(); renderHome(); },
-  'groups-tab': el => { U.groupsTab = el.dataset.t; renderGroups(); },
+  'groups-tab': el => { if (U.groupsTab !== el.dataset.t) $('#screen-groups').scrollTop = 0; U.groupsTab = el.dataset.t; renderGroups(); },
   'join-challenge': el => { S.challenges[el.dataset.id] = !S.challenges[el.dataset.id]; save(); renderGroups(); },
   discoverable: () => { S.discoverable = !S.discoverable; save(); renderYou(); toast(S.discoverable ? 'Runners at your pace can now see your neighborhood and pace.' : 'Hidden from other runners', 'shield'); },
   'run-route': el => { U.runRoute = el.dataset.id; setTab('workout'); toast(`Route loaded: ${byId(el.dataset.id).name}. Tap Start when you’re at the start.`, 'route'); },
