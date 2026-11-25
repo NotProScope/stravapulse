@@ -1,0 +1,5 @@
+PITCH-GUIDE.md
+tools/
+.claude/
+.env*
+.gitignore
