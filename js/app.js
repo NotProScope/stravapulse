@@ -464,7 +464,9 @@ function initMap() {
 
   overlay = L.layerGroup().addTo(map);
   weekLayer = L.layerGroup().addTo(map);
-  L.marker([ME.home.lat, ME.home.lng], { icon: L.divIcon({ className: 'pm', html: '<div class="me-dot"><i></i></div>', iconSize: [0, 0], iconAnchor: [0, 0] }), interactive: false, zIndexOffset: -100 }).addTo(map);
+  // you: tap the blue dot to zoom in on your surroundings (tap again to zoom back out)
+  L.marker([ME.home.lat, ME.home.lng], { icon: L.divIcon({ className: 'me-hit', html: '<div class="me-dot"><i></i></div>', iconSize: [34, 34], iconAnchor: [17, 17] }), title: 'You · zoom to your area', keyboard: true, zIndexOffset: 10000 })
+    .on('click', e => { L.DomEvent.stopPropagation(e); focusMe(); }).addTo(map);
   homeView(false);
   map.on('click', () => deselect());
   map.on('zoomend', () => updateMap());
@@ -475,6 +477,23 @@ function homeView(animate) {
   const b = L.latLngBounds([[34.0745, -118.50], [34.003, -118.395]]);
   const opts = { paddingTopLeft: [18, 110], paddingBottomRight: [18, 360] };
   if (animate) map.flyToBounds(b, { ...opts, duration: 0.8 }); else map.fitBounds(b, opts);
+}
+
+// Fly in on your own spot, centered in the part of the map the sheet doesn't cover
+function focusMe() {
+  if (!map) return;
+  const home = L.latLng(ME.home.lat, ME.home.lng), Z = 15; // about a mile across: your neighborhood
+  // already zoomed in on you: a second tap goes back to the overview
+  if (map.getZoom() >= Z - 0.5 && map.latLngToContainerPoint(home).distanceTo(map.getSize().divideBy(2)) < map.getSize().y * 0.35) { homeView(true); return; }
+  const sheet = $('#sheet');
+  if (U.sel) deselect(); else if (sheet.dataset.state === 'list') setSheet('peek');
+  if (sheet.dataset.state === 'peek' && !U.peekH) U.peekH = sheet.offsetHeight;
+  const covered = U.peekH || 344, top = 100; // sheet below, chips + status bar above
+  const shift = (covered - top) / 2;          // move the view down so you sit in the open area
+  const c = map.unproject(map.project(home, Z).add([0, shift]), Z);
+  map.flyTo(c, Z, { duration: 0.9 });
+  const near = eventsIn(curWin()).filter(e => miles(ME.home, e) <= 1).length;
+  toast(`${dayTitle()}: ${near ? `${near} run${near === 1 ? '' : 's'} within a mile of you` : 'nothing within a mile yet'}`, 'pin', 2600);
 }
 
 function pinShape(it, st) {

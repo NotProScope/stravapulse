@@ -242,6 +242,10 @@ button.avatar, .avatars button { cursor: pointer; }
 .anchor { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .5); opacity: 0; transition: opacity .3s; pointer-events: none; }
 .pin.nudged:not(.out) + .anchor { opacity: .9; }
 
+.me-hit { overflow: visible; cursor: pointer; border-radius: 50%; -webkit-tap-highlight-color: transparent; }
+.me-hit .me-dot { left: 50%; top: 50%; transition: transform .2s ease; }
+.me-hit:hover .me-dot, .me-hit:focus-visible .me-dot { transform: scale(1.15); }
+.me-hit:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 .me-dot { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 3px #fff, 0 2px 8px rgba(0, 0, 0, .5); }
 .me-dot i { position: absolute; inset: -12px; border-radius: 50%; background: rgba(76, 141, 255, .3); animation: mePulse 2.6s ease-out infinite; }
 @keyframes mePulse { from { transform: scale(.35); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
